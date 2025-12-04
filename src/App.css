@@ -8,21 +8,61 @@
 .app-header {
   background: white;
   padding: 1.5rem;
-  text-align: center;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
   z-index: 10;
+}
+
+.header-content {
+  max-width: 800px;
+  margin: 0 auto;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
 .app-header h1 {
   font-size: 2rem;
   color: #333;
   margin-bottom: 0.25rem;
+  text-align: left;
 }
 
 .subtitle {
   font-size: 0.9rem;
   color: #666;
   font-style: italic;
+  text-align: left;
+}
+
+.voice-toggle {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border: 2px solid #667eea;
+  background: white;
+  color: #667eea;
+  font-size: 1.5rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+
+.voice-toggle:hover {
+  transform: scale(1.1);
+  background: #f0f0f0;
+}
+
+.voice-toggle.active {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border-color: transparent;
+}
+
+.voice-toggle.active:hover {
+  background: linear-gradient(135deg, #5568d3 0%, #653a8f 100%);
 }
 
 .chat-container {
@@ -74,6 +114,53 @@
   cursor: not-allowed;
 }
 
+.voice-record-button {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border: 2px solid #667eea;
+  background: white;
+  color: #667eea;
+  font-size: 1.5rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+
+.voice-record-button:hover:not(:disabled) {
+  transform: scale(1.05);
+  background: #f0f0f0;
+}
+
+.voice-record-button:active:not(:disabled) {
+  transform: scale(0.95);
+}
+
+.voice-record-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.voice-record-button.recording {
+  background: #ff4444;
+  border-color: #ff4444;
+  color: white;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(255, 68, 68, 0.7);
+  }
+  50% {
+    box-shadow: 0 0 0 10px rgba(255, 68, 68, 0);
+  }
+}
+
 .send-button {
   width: 48px;
   height: 48px;
@@ -123,12 +210,30 @@
 
 /* Mobile responsive */
 @media (max-width: 768px) {
+  .app-header {
+    padding: 1rem;
+  }
+
+  .header-content {
+    flex-direction: column;
+    gap: 1rem;
+    align-items: center;
+  }
+
   .app-header h1 {
     font-size: 1.5rem;
+    text-align: center;
   }
 
   .subtitle {
     font-size: 0.8rem;
+    text-align: center;
+  }
+
+  .voice-toggle {
+    width: 40px;
+    height: 40px;
+    font-size: 1.2rem;
   }
 
   .chat-container {
@@ -142,5 +247,79 @@
   .message-input {
     font-size: 0.95rem;
   }
+
+  .voice-record-button {
+    width: 40px;
+    height: 40px;
+    font-size: 1.2rem;
+  }
+
+  .send-button {
+    width: 40px;
+    height: 40px;
+    font-size: 1.2rem;
+  }
 }
 
+.toast-notification {
+  position: fixed;
+  bottom: 100px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #ff4444;
+  color: white;
+  padding: 1rem 1.5rem;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  z-index: 1000;
+  max-width: 90%;
+  animation: slideUp 0.3s ease-out;
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+.toast-notification span {
+  flex: 1;
+  font-size: 0.9rem;
+}
+
+.toast-close {
+  background: none;
+  border: none;
+  color: white;
+  font-size: 1.5rem;
+  cursor: pointer;
+  padding: 0;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: background 0.2s;
+}
+
+.toast-close:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+@media (max-width: 768px) {
+  .toast-notification {
+    bottom: 80px;
+    padding: 0.75rem 1rem;
+    font-size: 0.85rem;
+    max-width: 95%;
+  }
+}
