@@ -19,6 +19,8 @@ function App() {
   const [isRecording, setIsRecording] = useState(false);
   const [recognitionSupported, setRecognitionSupported] = useState(true); // Always supported with MediaRecorder
   const [recognitionError, setRecognitionError] = useState(null);
+  const [selectedVoice, setSelectedVoice] = useState("auto"); // "auto", "Mathieu", "Matthew", "Joey", etc.
+  const [showVoiceMenu, setShowVoiceMenu] = useState(false);
   const messagesEndRef = useRef(null);
   const chatContainerRef = useRef(null);
   const currentAudioRef = useRef(null);
@@ -57,6 +59,26 @@ function App() {
       setRecognitionSupported(false);
     }
   }, []);
+
+  // Close voice menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (
+        showVoiceMenu &&
+        !event.target.closest(".voice-select-button") &&
+        !event.target.closest(".voice-menu")
+      ) {
+        setShowVoiceMenu(false);
+      }
+    };
+
+    if (showVoiceMenu) {
+      document.addEventListener("mousedown", handleClickOutside);
+      return () => {
+        document.removeEventListener("mousedown", handleClickOutside);
+      };
+    }
+  }, [showVoiceMenu]);
 
   // Cleanup audio and recording on unmount
   useEffect(() => {
@@ -184,16 +206,40 @@ function App() {
             fullResponse.substring(0, 50) + "..."
           );
 
-          // Try different approaches to get a male voice
+          // Determine which voice to use
+          let voiceToUse;
+          let actualLanguage = language;
+
+          if (selectedVoice === "auto") {
+            voiceToUse = isFrench ? "Mathieu" : "Matthew";
+          } else {
+            // Map voice names to actual TTS voice names
+            // For French provocative voices, use more seductive voice names
+            if (selectedVoice === "Lea") {
+              voiceToUse = "Lea"; // Léa - provocative French female voice
+              actualLanguage = "fr-FR";
+            } else if (selectedVoice === "Chantal") {
+              voiceToUse = "Chantal"; // Chantal - seductive French female voice
+              actualLanguage = "fr-FR";
+            } else if (selectedVoice === "Celine") {
+              voiceToUse = "Celine"; // Céline - French female voice
+              actualLanguage = "fr-FR";
+            } else {
+              voiceToUse = selectedVoice;
+            }
+          }
+
+          console.log("🎙️ Using voice:", voiceToUse);
+
+          // Try different approaches to get the selected voice
           let audio;
-          const maleVoice = isFrench ? "Mathieu" : "Matthew";
 
           try {
             // Method 1: Try with provider and voice (Amazon Polly format)
             audio = await window.puter.ai.txt2speech(fullResponse, {
               provider: "aws-polly",
-              voice: maleVoice,
-              language: language,
+              voice: voiceToUse,
+              language: actualLanguage,
             });
             console.log("✅ Audio generated with AWS Polly provider");
           } catch (pollyError) {
@@ -204,42 +250,60 @@ function App() {
             try {
               // Method 2: Try with voice parameter directly
               audio = await window.puter.ai.txt2speech(fullResponse, {
-                voice: maleVoice,
-                language: language,
+                voice: voiceToUse,
+                language: actualLanguage,
                 engine: "neural",
               });
               console.log("✅ Audio generated with voice parameter");
             } catch (voiceError) {
               console.warn(
-                "Voice parameter failed, trying alternative:",
+                "Voice parameter failed, trying alternative voices:",
                 voiceError
               );
-              try {
-                // Method 3: Try with alternative male voice (Joey for English)
-                const altVoice = isFrench ? "Mathieu" : "Joey";
-                audio = await window.puter.ai.txt2speech(fullResponse, {
-                  voice: altVoice,
-                  language: language,
-                  engine: "neural",
-                });
-                console.log("✅ Audio generated with alternative voice");
-              } catch (altError) {
-                console.warn(
-                  "Alternative voice failed, trying without voice:",
-                  altError
-                );
+              // For French provocative voices, try alternative names
+              if (
+                (selectedVoice === "Lea" || selectedVoice === "Chantal") &&
+                isFrench
+              ) {
                 try {
-                  // Method 4: Try without voice (uses default)
+                  // Try with alternative French provocative voice names
+                  const altVoices = ["Lea", "Chantal", "Celine", "Mathieu"];
+                  for (const altVoice of altVoices) {
+                    try {
+                      audio = await window.puter.ai.txt2speech(fullResponse, {
+                        voice: altVoice,
+                        language: "fr-FR",
+                        engine: "neural",
+                      });
+                      console.log(
+                        `✅ Audio generated with alternative voice: ${altVoice}`
+                      );
+                      break;
+                    } catch (e) {
+                      continue;
+                    }
+                  }
+                } catch (altError) {
+                  console.warn(
+                    "Alternative voices failed, trying without voice:",
+                    altError
+                  );
+                }
+              }
+
+              if (!audio) {
+                try {
+                  // Method 3: Try without voice (uses default)
                   audio = await window.puter.ai.txt2speech(fullResponse, {
-                    language: language,
+                    language: actualLanguage,
                     engine: "neural",
                   });
                   console.log("✅ Audio generated without voice parameter");
                 } catch (fallbackError) {
-                  // Method 5: Last resort - just language
+                  // Method 4: Last resort - just language
                   audio = await window.puter.ai.txt2speech(
                     fullResponse,
-                    language
+                    actualLanguage
                   );
                   console.log("✅ Audio generated with language only");
                 }
@@ -308,6 +372,7 @@ function App() {
       setIsPlayingAudio(false);
     }
     setVoiceMode(!voiceMode);
+    setShowVoiceMenu(false); // Close menu when toggling voice mode
   };
 
   const startRecording = async () => {
@@ -406,15 +471,144 @@ function App() {
             <h1>🤡 Chat'Bruti</h1>
             <p className="subtitle">Le chatbot le plus inutile au monde</p>
           </div>
-          <button
-            className={`voice-toggle ${voiceMode ? "active" : ""}`}
-            onClick={toggleVoiceMode}
-            title={
-              voiceMode ? "Désactiver le mode voix" : "Activer le mode voix"
-            }
-          >
-            {isPlayingAudio ? "🔊" : voiceMode ? "🔊" : "🔇"}
-          </button>
+          <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+            <div style={{ position: "relative" }}>
+              <button
+                className={`voice-toggle ${voiceMode ? "active" : ""}`}
+                onClick={toggleVoiceMode}
+                title={
+                  voiceMode ? "Désactiver le mode voix" : "Activer le mode voix"
+                }
+              >
+                {isPlayingAudio ? "🔊" : voiceMode ? "🔊" : "🔇"}
+              </button>
+              {voiceMode && (
+                <button
+                  className="voice-select-button"
+                  onClick={() => setShowVoiceMenu(!showVoiceMenu)}
+                  title="Choisir la voix"
+                >
+                  🎙️
+                </button>
+              )}
+              {showVoiceMenu && voiceMode && (
+                <div className="voice-menu">
+                  <div className="voice-menu-header">Choisir la voix</div>
+                  <button
+                    className={`voice-option ${
+                      selectedVoice === "auto" ? "active" : ""
+                    }`}
+                    onClick={() => {
+                      setSelectedVoice("auto");
+                      setShowVoiceMenu(false);
+                    }}
+                  >
+                    Auto (Mathieu/Matthew)
+                  </button>
+                  <button
+                    className={`voice-option ${
+                      selectedVoice === "Mathieu" ? "active" : ""
+                    }`}
+                    onClick={() => {
+                      setSelectedVoice("Mathieu");
+                      setShowVoiceMenu(false);
+                    }}
+                  >
+                    Mathieu (FR)
+                  </button>
+                  <button
+                    className={`voice-option ${
+                      selectedVoice === "Matthew" ? "active" : ""
+                    }`}
+                    onClick={() => {
+                      setSelectedVoice("Matthew");
+                      setShowVoiceMenu(false);
+                    }}
+                  >
+                    Matthew (EN)
+                  </button>
+                  <button
+                    className={`voice-option ${
+                      selectedVoice === "Joey" ? "active" : ""
+                    }`}
+                    onClick={() => {
+                      setSelectedVoice("Joey");
+                      setShowVoiceMenu(false);
+                    }}
+                  >
+                    Joey (EN)
+                  </button>
+                  <div className="voice-menu-divider">Voix provocatives</div>
+                  <button
+                    className={`voice-option ${
+                      selectedVoice === "Brian" ? "active" : ""
+                    }`}
+                    onClick={() => {
+                      setSelectedVoice("Brian");
+                      setShowVoiceMenu(false);
+                    }}
+                  >
+                    Brian (EN) - Provocatif
+                  </button>
+                  <button
+                    className={`voice-option ${
+                      selectedVoice === "Lea" ? "active" : ""
+                    }`}
+                    onClick={() => {
+                      setSelectedVoice("Lea");
+                      setShowVoiceMenu(false);
+                    }}
+                  >
+                    Léa (FR) - Provocative
+                  </button>
+                  <button
+                    className={`voice-option ${
+                      selectedVoice === "Chantal" ? "active" : ""
+                    }`}
+                    onClick={() => {
+                      setSelectedVoice("Chantal");
+                      setShowVoiceMenu(false);
+                    }}
+                  >
+                    Chantal (FR) - Provocative
+                  </button>
+                  <button
+                    className={`voice-option ${
+                      selectedVoice === "Celine" ? "active" : ""
+                    }`}
+                    onClick={() => {
+                      setSelectedVoice("Celine");
+                      setShowVoiceMenu(false);
+                    }}
+                  >
+                    Céline (FR)
+                  </button>
+                  <button
+                    className={`voice-option ${
+                      selectedVoice === "Amy" ? "active" : ""
+                    }`}
+                    onClick={() => {
+                      setSelectedVoice("Amy");
+                      setShowVoiceMenu(false);
+                    }}
+                  >
+                    Amy (EN) - Provocative
+                  </button>
+                  <button
+                    className={`voice-option ${
+                      selectedVoice === "Emma" ? "active" : ""
+                    }`}
+                    onClick={() => {
+                      setSelectedVoice("Emma");
+                      setShowVoiceMenu(false);
+                    }}
+                  >
+                    Emma (EN) - Provocative
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       </header>
 
